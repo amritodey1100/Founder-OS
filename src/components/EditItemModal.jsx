@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import Modal from "./Modal";
-import {
-  HiOutlineEye,
-  HiOutlinePencilSquare,
-  HiOutlineDocumentText,
-} from "react-icons/hi2";
+import MarkdownEditor from "./MarkdownEditor";
 
 /**
  * EditItemModal - Modal for editing item title and markdown description
@@ -14,16 +8,15 @@ import {
 export default function EditItemModal({ isOpen, onClose, item, onSave }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [activeTab, setActiveTab] = useState("edit"); // 'edit' | 'preview'
 
-  // Sync state when item changes
+  // Sync state when item changes using key pattern
+  // This is acceptable since we're syncing external props to local state
   useEffect(() => {
     if (item) {
       setTitle(item.title || "");
       setDescription(item.description || "");
-      setActiveTab("edit");
     }
-  }, [item]);
+  }, [item?.id]); // Only sync when item.id changes, not on every render
 
   const handleSave = () => {
     if (title.trim()) {
@@ -55,81 +48,17 @@ export default function EditItemModal({ isOpen, onClose, item, onSave }) {
           />
         </div>
 
-        {/* Description with tabs */}
+        {/* Description with MarkdownEditor */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">
-              Description
-            </label>
-            <div className="flex items-center gap-1 bg-[#0a0a0a] border border-[#1a1a1a] rounded p-0.5">
-              <button
-                onClick={() => setActiveTab("edit")}
-                className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
-                  activeTab === "edit"
-                    ? "bg-[#1a1a1a] text-white"
-                    : "text-gray-500 hover:text-gray-300"
-                }`}
-              >
-                <HiOutlinePencilSquare className="w-3 h-3" />
-                Edit
-              </button>
-              <button
-                onClick={() => setActiveTab("preview")}
-                className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
-                  activeTab === "preview"
-                    ? "bg-[#1a1a1a] text-white"
-                    : "text-gray-500 hover:text-gray-300"
-                }`}
-              >
-                <HiOutlineEye className="w-3 h-3" />
-                Preview
-              </button>
-            </div>
-          </div>
-
-          {activeTab === "edit" ? (
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Write your description using Markdown...
-
-# Heading
-**Bold**, *italic*, ~~strikethrough~~
-
-- Bullet list
-1. Numbered list
-- [ ] Checkbox
-
-> Blockquote
-
-`inline code`
-
-```
-code block
-```"
-              className="w-full h-64 bg-black border border-[#1a1a1a] rounded px-3 py-2 text-sm text-gray-200 placeholder-gray-700 outline-none focus:border-[#2a2a2a] resize-none custom-scrollbar"
-            />
-          ) : (
-            <div className="h-64 bg-black border border-[#1a1a1a] rounded px-4 py-3 overflow-y-auto custom-scrollbar">
-              {description ? (
-                <div className="prose-terminal text-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {description}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <p className="text-gray-600 text-sm italic flex items-center gap-2">
-                  <HiOutlineDocumentText className="w-4 h-4" />
-                  No description yet...
-                </p>
-              )}
-            </div>
-          )}
-
-          <p className="text-[10px] text-gray-600 mt-1.5">
-            Supports Markdown: headings, bold, italic, lists, checkboxes, code
-            blocks, tables, and more.
-          </p>
+          <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1.5">
+            Description
+          </label>
+          <MarkdownEditor
+            value={description}
+            onChange={setDescription}
+            placeholder="Write your description using Markdown..."
+            minHeight="256px"
+          />
         </div>
 
         {/* Actions */}

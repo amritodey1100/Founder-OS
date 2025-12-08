@@ -5,11 +5,15 @@ import { generateId } from "./utils/localStorage";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
 import Column from "./components/Column";
+import { KeyboardShortcutsIcon } from "./components/KeyboardShortcutsModal";
 
 // Lazy load modals for better initial load performance
 const EditItemModal = lazy(() => import("./components/EditItemModal"));
 const AddSectionModal = lazy(() => import("./components/AddSectionModal"));
 const ViewItemModal = lazy(() => import("./components/ViewItemModal"));
+const KeyboardShortcutsModal = lazy(() =>
+  import("./components/KeyboardShortcutsModal")
+);
 
 // Loading fallback for modals
 const ModalLoader = () => (
@@ -39,6 +43,7 @@ export default function App() {
   const [viewingItem, setViewingItem] = useState(null);
   const [viewingColumnId, setViewingColumnId] = useState(null);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
   // Filter items based on search query - memoized for performance
   const filteredColumns = useMemo(() => {
@@ -234,7 +239,8 @@ export default function App() {
   );
 
   // Check if any modal is open for lazy loading
-  const hasOpenModal = !!viewingItem || !!editingItem || isAddSectionOpen;
+  const hasOpenModal =
+    !!viewingItem || !!editingItem || isAddSectionOpen || isShortcutsOpen;
 
   return (
     <div className="min-h-screen bg-black text-gray-200 p-4 md:p-6 lg:p-8">
@@ -265,6 +271,18 @@ export default function App() {
             >
               <HiOutlinePlus className="w-3.5 h-3.5" />
               Add Section
+            </button>
+            {/* Keyboard Shortcuts Button */}
+            <button
+              onClick={() => setIsShortcutsOpen(true)}
+              className="group relative p-2 text-gray-500 border border-[#1a1a1a] rounded hover:text-green-400 hover:border-[#2a2a2a] transition-colors"
+              aria-label="Keyboard Shortcuts"
+            >
+              <KeyboardShortcutsIcon className="w-4 h-4" />
+              {/* Tooltip */}
+              <span className="absolute right-0 top-full mt-2 px-2 py-1 text-xs text-white bg-[#1a1a1a] border border-[#2a2a2a] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                Keyboard Shortcuts
+              </span>
             </button>
           </div>
         </div>
@@ -329,6 +347,11 @@ export default function App() {
             isOpen={isAddSectionOpen}
             onClose={handleCloseAddSection}
             onAdd={addColumn}
+          />
+
+          <KeyboardShortcutsModal
+            isOpen={isShortcutsOpen}
+            onClose={() => setIsShortcutsOpen(false)}
           />
         </Suspense>
       )}
