@@ -1,15 +1,20 @@
-import React from "react";
+import React, { memo } from "react";
 import { HiOutlineCommandLine, HiOutlineSignal } from "react-icons/hi2";
 
-/**
- * Header component - Terminal-style app header
- */
-export default function Header() {
-  const currentDate = new Date().toLocaleDateString("en-US", {
+// Memoize the date calculation to avoid recalculating on every render
+const formatDate = () =>
+  new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
   });
+
+/**
+ * Header component - Terminal-style app header
+ * Memoized since it doesn't depend on props and rarely changes
+ */
+const Header = memo(function Header() {
+  const currentDate = formatDate();
 
   return (
     <header className="flex items-center justify-between border-b border-[#1a1a1a] pb-4 mb-6">
@@ -38,4 +43,6 @@ export default function Header() {
       </div>
     </header>
   );
-}
+});
+
+export default Header;

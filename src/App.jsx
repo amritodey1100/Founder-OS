@@ -1,13 +1,22 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { HiOutlinePlus, HiOutlineVideoCamera } from "react-icons/hi2";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { generateId } from "./utils/localStorage";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
 import Column from "./components/Column";
-import EditItemModal from "./components/EditItemModal";
-import AddSectionModal from "./components/AddSectionModal";
-import ViewItemModal from "./components/ViewItemModal";
+
+// Lazy load modals for better initial load performance
+const EditItemModal = lazy(() => import("./components/EditItemModal"));
+const AddSectionModal = lazy(() => import("./components/AddSectionModal"));
+const ViewItemModal = lazy(() => import("./components/ViewItemModal"));
+
+// Loading fallback for modals
+const ModalLoader = () => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+    <div className="text-gray-400 text-sm">Loading...</div>
+  </div>
+);
 
 // Default columns configuration
 const DEFAULT_COLUMNS = [
@@ -31,7 +40,7 @@ export default function App() {
   const [viewingColumnId, setViewingColumnId] = useState(null);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
 
-  // Filter items based on search query
+  // Filter items based on search query - memoized for performance
   const filteredColumns = useMemo(() => {
     if (!searchQuery.trim()) return columns;
 
@@ -46,130 +55,186 @@ export default function App() {
     }));
   }, [columns, searchQuery]);
 
-  // === COLUMN OPERATIONS ===
+  // === MEMOIZED COLUMN OPERATIONS ===
 
-  const addColumn = (title, color) => {
-    const newColumn = {
-      id: `col-${generateId()}`,
-      title,
-      color,
-      items: [],
-    };
-    // Insert before the last column (Posted)
-    const newColumns = [...columns];
-    newColumns.splice(columns.length - 1, 0, newColumn);
-    setColumns(newColumns);
-  };
+  const addColumn = useCallback(
+    (title, color) => {
+      const newColumn = {
+        id: `col-${generateId()}`,
+        title,
+        color,
+        items: [],
+      };
+      setColumns((prev) => {
+        const newColumns = [...prev];
+        newColumns.splice(prev.length - 1, 0, newColumn);
+        return newColumns;
+      });
+    },
+    [setColumns]
+  );
 
-  const renameColumn = (columnId, newTitle) => {
-    setColumns(
-      columns.map((col) =>
-        col.id === columnId ? { ...col, title: newTitle } : col
-      )
-    );
-  };
+  const renameColumn = useCallback(
+    (columnId, newTitle) => {
+      setColumns((prev) =>
+        prev.map((col) =>
+          col.id === columnId ? { ...col, title: newTitle } : col
+        )
+      );
+    },
+    [setColumns]
+  );
 
-  const deleteColumn = (columnId) => {
-    if (window.confirm("Delete this section and all its items?")) {
-      setColumns(columns.filter((col) => col.id !== columnId));
-    }
-  };
+  const deleteColumn = useCallback(
+    (columnId) => {
+      if (window.confirm("Delete this section and all its items?")) {
+        setColumns((prev) => prev.filter((col) => col.id !== columnId));
+      }
+    },
+    [setColumns]
+  );
 
-  // === ITEM OPERATIONS ===
+  // === MEMOIZED ITEM OPERATIONS ===
 
-  const addItem = (columnId, title) => {
-    const newItem = {
-      id: `item-${generateId()}`,
-      title,
-      description: "",
-    };
-    setColumns(
-      columns.map((col) =>
-        col.id === columnId ? { ...col, items: [...col.items, newItem] } : col
-      )
-    );
-  };
+  const addItem = useCallback(
+    (columnId, title) => {
+      const newItem = {
+        id: `item-${generateId()}`,
+        title,
+        description: "",
+      };
+      setColumns((prev) =>
+        prev.map((col) =>
+          col.id === columnId ? { ...col, items: [...col.items, newItem] } : col
+        )
+      );
+    },
+    [setColumns]
+  );
 
-  const updateItem = (updatedItem) => {
-    setColumns(
-      columns.map((col) => ({
-        ...col,
-        items: col.items.map((item) =>
-          item.id === updatedItem.id ? updatedItem : item
-        ),
-      }))
-    );
-  };
+  const updateItem = useCallback(
+    (updatedItem) => {
+      setColumns((prev) =>
+        prev.map((col) => ({
+          ...col,
+          items: col.items.map((item) =>
+            item.id === updatedItem.id ? updatedItem : item
+          ),
+        }))
+      );
+    },
+    [setColumns]
+  );
 
-  const deleteItem = (columnId, itemId) => {
-    setColumns(
-      columns.map((col) =>
-        col.id === columnId
-          ? { ...col, items: col.items.filter((item) => item.id !== itemId) }
-          : col
-      )
-    );
-    // Close modals if deleting viewed/edited item
-    if (viewingItem?.id === itemId) {
-      setViewingItem(null);
-      setViewingColumnId(null);
-    }
-    if (editingItem?.id === itemId) {
-      setEditingItem(null);
-    }
-  };
+  const deleteItem = useCallback(
+    (columnId, itemId) => {
+      setColumns((prev) =>
+        prev.map((col) =>
+          col.id === columnId
+            ? { ...col, items: col.items.filter((item) => item.id !== itemId) }
+            : col
+        )
+      );
+      // Close modals if deleting viewed/edited item
+      setViewingItem((prev) => (prev?.id === itemId ? null : prev));
+      setViewingColumnId((prev) => (viewingItem?.id === itemId ? null : prev));
+      setEditingItem((prev) => (prev?.id === itemId ? null : prev));
+    },
+    [setColumns, viewingItem?.id]
+  );
 
-  const moveItem = (fromColumnId, itemId, direction) => {
-    const fromIndex = columns.findIndex((col) => col.id === fromColumnId);
-    const toIndex = fromIndex + direction;
+  const moveItem = useCallback(
+    (fromColumnId, itemId, direction) => {
+      setColumns((prev) => {
+        const fromIndex = prev.findIndex((col) => col.id === fromColumnId);
+        const toIndex = fromIndex + direction;
 
-    if (toIndex < 0 || toIndex >= columns.length) return;
+        if (toIndex < 0 || toIndex >= prev.length) return prev;
 
-    const newColumns = columns.map((col) => ({
-      ...col,
-      items: [...col.items],
-    }));
-    const fromColumn = newColumns[fromIndex];
-    const toColumn = newColumns[toIndex];
+        const newColumns = prev.map((col) => ({
+          ...col,
+          items: [...col.items],
+        }));
+        const fromColumn = newColumns[fromIndex];
+        const toColumn = newColumns[toIndex];
 
-    // Find and remove item from source column
-    const itemIndex = fromColumn.items.findIndex((item) => item.id === itemId);
-    if (itemIndex === -1) return;
+        const itemIndex = fromColumn.items.findIndex(
+          (item) => item.id === itemId
+        );
+        if (itemIndex === -1) return prev;
 
-    const [item] = fromColumn.items.splice(itemIndex, 1);
-    toColumn.items.push(item);
+        const [item] = fromColumn.items.splice(itemIndex, 1);
+        toColumn.items.push(item);
 
-    setColumns(newColumns);
+        return newColumns;
+      });
 
-    // Update viewing column if item was being viewed
-    if (viewingItem?.id === itemId) {
-      setViewingColumnId(toColumn.id);
-    }
-  };
+      // Update viewing column if item was being viewed
+      if (viewingItem?.id === itemId) {
+        setColumns((prev) => {
+          const fromIndex = prev.findIndex((col) => col.id === fromColumnId);
+          const toIndex = fromIndex + direction;
+          if (toIndex >= 0 && toIndex < prev.length) {
+            setViewingColumnId(prev[toIndex].id);
+          }
+          return prev;
+        });
+      }
+    },
+    [setColumns, viewingItem?.id]
+  );
 
-  // === MODAL HANDLERS ===
+  // === MEMOIZED MODAL HANDLERS ===
 
-  const handleEditItem = (item) => {
+  const handleEditItem = useCallback((item) => {
     setViewingItem(null);
     setViewingColumnId(null);
     setEditingItem(item);
-  };
+  }, []);
 
-  const handleViewItem = (item, columnId) => {
+  const handleViewItem = useCallback((item, columnId) => {
     setViewingItem(item);
     setViewingColumnId(columnId);
-  };
+  }, []);
 
-  const handleSaveItem = (updatedItem) => {
-    updateItem(updatedItem);
+  const handleSaveItem = useCallback(
+    (updatedItem) => {
+      updateItem(updatedItem);
+      setEditingItem(null);
+    },
+    [updateItem]
+  );
+
+  const handleCloseViewModal = useCallback(() => {
+    setViewingItem(null);
+    setViewingColumnId(null);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
     setEditingItem(null);
-  };
+  }, []);
+
+  const handleOpenAddSection = useCallback(() => {
+    setIsAddSectionOpen(true);
+  }, []);
+
+  const handleCloseAddSection = useCallback(() => {
+    setIsAddSectionOpen(false);
+  }, []);
 
   // Find column for viewing item
-  const viewingColumn = columns.find((col) => col.id === viewingColumnId);
-  const viewingColumnIndex = columns.findIndex(
-    (col) => col.id === viewingColumnId
+  const viewingColumn = useMemo(
+    () => columns.find((col) => col.id === viewingColumnId),
+    [columns, viewingColumnId]
   );
+
+  const viewingColumnIndex = useMemo(
+    () => columns.findIndex((col) => col.id === viewingColumnId),
+    [columns, viewingColumnId]
+  );
+
+  // Check if any modal is open for lazy loading
+  const hasOpenModal = !!viewingItem || !!editingItem || isAddSectionOpen;
 
   return (
     <div className="min-h-screen bg-black text-gray-200 p-4 md:p-6 lg:p-8">
@@ -195,7 +260,7 @@ export default function App() {
               />
             </div>
             <button
-              onClick={() => setIsAddSectionOpen(true)}
+              onClick={handleOpenAddSection}
               className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 border border-[#1a1a1a] rounded hover:text-green-400 hover:border-[#2a2a2a] transition-colors whitespace-nowrap"
             >
               <HiOutlinePlus className="w-3.5 h-3.5" />
@@ -237,35 +302,36 @@ export default function App() {
           )}
       </div>
 
-      {/* Modals */}
-      <ViewItemModal
-        isOpen={!!viewingItem}
-        onClose={() => {
-          setViewingItem(null);
-          setViewingColumnId(null);
-        }}
-        item={viewingItem}
-        columnTitle={viewingColumn?.title}
-        onEdit={handleEditItem}
-        onDelete={(itemId) => deleteItem(viewingColumnId, itemId)}
-        onMoveLeft={(itemId) => moveItem(viewingColumnId, itemId, -1)}
-        onMoveRight={(itemId) => moveItem(viewingColumnId, itemId, 1)}
-        canMoveLeft={viewingColumnIndex > 0}
-        canMoveRight={viewingColumnIndex < columns.length - 1}
-      />
+      {/* Lazy loaded modals with Suspense */}
+      {hasOpenModal && (
+        <Suspense fallback={<ModalLoader />}>
+          <ViewItemModal
+            isOpen={!!viewingItem}
+            onClose={handleCloseViewModal}
+            item={viewingItem}
+            columnTitle={viewingColumn?.title}
+            onEdit={handleEditItem}
+            onDelete={(itemId) => deleteItem(viewingColumnId, itemId)}
+            onMoveLeft={(itemId) => moveItem(viewingColumnId, itemId, -1)}
+            onMoveRight={(itemId) => moveItem(viewingColumnId, itemId, 1)}
+            canMoveLeft={viewingColumnIndex > 0}
+            canMoveRight={viewingColumnIndex < columns.length - 1}
+          />
 
-      <EditItemModal
-        isOpen={!!editingItem}
-        onClose={() => setEditingItem(null)}
-        item={editingItem}
-        onSave={handleSaveItem}
-      />
+          <EditItemModal
+            isOpen={!!editingItem}
+            onClose={handleCloseEditModal}
+            item={editingItem}
+            onSave={handleSaveItem}
+          />
 
-      <AddSectionModal
-        isOpen={isAddSectionOpen}
-        onClose={() => setIsAddSectionOpen(false)}
-        onAdd={addColumn}
-      />
+          <AddSectionModal
+            isOpen={isAddSectionOpen}
+            onClose={handleCloseAddSection}
+            onAdd={addColumn}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

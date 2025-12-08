@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import {
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
@@ -8,8 +8,9 @@ import {
 
 /**
  * ItemCard component - Individual task/item in a column
+ * Memoized to prevent unnecessary re-renders when other items change
  */
-export default function ItemCard({
+const ItemCard = memo(function ItemCard({
   item,
   onEdit,
   onDelete,
@@ -95,4 +96,6 @@ export default function ItemCard({
       )}
     </div>
   );
-}
+});
+
+export default ItemCard;

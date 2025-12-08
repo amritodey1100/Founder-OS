@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useState, useCallback } from "react";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
@@ -22,8 +22,9 @@ const COLUMN_COLORS = {
 
 /**
  * Column component - Kanban column with items
+ * Memoized to prevent re-renders when other columns change
  */
-export default function Column({
+const Column = memo(function Column({
   column,
   items,
   onAddItem,
@@ -42,22 +43,42 @@ export default function Column({
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemTitle, setNewItemTitle] = useState("");
 
-  // Handle column rename
-  const handleRename = () => {
+  // Memoized handlers to prevent child re-renders
+  const handleRename = useCallback(() => {
     if (editTitle.trim() && editTitle !== column.title) {
       onRenameColumn(column.id, editTitle.trim());
     }
     setIsEditing(false);
-  };
+  }, [editTitle, column.title, column.id, onRenameColumn]);
 
-  // Handle add new item
-  const handleAddItem = () => {
+  const handleAddItem = useCallback(() => {
     if (newItemTitle.trim()) {
       onAddItem(column.id, newItemTitle.trim());
       setNewItemTitle("");
       setIsAddingItem(false);
     }
-  };
+  }, [newItemTitle, column.id, onAddItem]);
+
+  const handleDeleteItem = useCallback(
+    (itemId) => {
+      onDeleteItem(column.id, itemId);
+    },
+    [column.id, onDeleteItem]
+  );
+
+  const handleMoveLeft = useCallback(
+    (itemId) => {
+      onMoveItem(column.id, itemId, -1);
+    },
+    [column.id, onMoveItem]
+  );
+
+  const handleMoveRight = useCallback(
+    (itemId) => {
+      onMoveItem(column.id, itemId, 1);
+    },
+    [column.id, onMoveItem]
+  );
 
   const colorClass = COLUMN_COLORS[column.color] || COLUMN_COLORS.green;
 
@@ -145,9 +166,9 @@ export default function Column({
             key={item.id}
             item={item}
             onEdit={onEditItem}
-            onDelete={(itemId) => onDeleteItem(column.id, itemId)}
-            onMoveLeft={(itemId) => onMoveItem(column.id, itemId, -1)}
-            onMoveRight={(itemId) => onMoveItem(column.id, itemId, 1)}
+            onDelete={handleDeleteItem}
+            onMoveLeft={handleMoveLeft}
+            onMoveRight={handleMoveRight}
             canMoveLeft={canMoveLeft}
             canMoveRight={canMoveRight}
           />
@@ -199,4 +220,6 @@ export default function Column({
       )}
     </div>
   );
-}
+});
+
+export default Column;

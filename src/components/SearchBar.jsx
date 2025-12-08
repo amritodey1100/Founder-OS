@@ -1,10 +1,11 @@
-import React from "react";
+import React, { memo } from "react";
 import { HiOutlineMagnifyingGlass, HiXMark } from "react-icons/hi2";
 
 /**
  * SearchBar component - Global search/filter for items
+ * Memoized to prevent re-renders when parent state changes
  */
-export default function SearchBar({
+const SearchBar = memo(function SearchBar({
   value,
   onChange,
   placeholder = "Search items...",
@@ -29,4 +30,6 @@ export default function SearchBar({
       )}
     </div>
   );
-}
+});
+
+export default SearchBar;
