@@ -1,6 +1,7 @@
-# Add service account key (sensitive)
-serviceAccountKey.json
+# Logs
+logs
 
 # Environment files
 .env
 server/.env
+node_modules
