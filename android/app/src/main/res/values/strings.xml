@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Amrito OS</string>
+    <string name="title_activity_main">Amrito OS</string>
+    <string name="package_name">com.amrito.os</string>
+    <string name="custom_url_scheme">com.amrito.os</string>
+</resources>
